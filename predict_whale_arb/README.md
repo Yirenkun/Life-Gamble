@@ -1,24 +1,19 @@
 # Predict Whale & Arbitrage Engine
 
-A Python 3.11+ research/trading engine for Predict.fun focused on **Esports + Politics whale discovery, copy-trading signals, and arbitrage scanning**.
+A Python 3.11+ research/trading engine for Predict.fun focused on **Esports + Politics whale discovery, copy-trading signals, and cross-venue arbitrage scanning**.
 
-## Modes
+## What this build does
 
-- `paper`: default. Never sends an order.
-- `live`: requires explicit `LIVE_TRADING=true` and a configured execution adapter.
+- Discovers candidate wallets from a public Predict.Fun analytics leaderboard adapter.
+- Scores candidate whales using lifetime PnL, volume, sample size and win rate.
+- Uses Predict.fun positions to identify current **Esports / Politics** exposure.
+- Emits copy-trading signals with per-wallet caps, cooldowns and a daily-loss circuit breaker.
+- Scans Predict.fun against Polymarket for likely cross-venue price dislocations.
+- Keeps execution in `paper` mode by default; live order submission is intentionally isolated.
 
-## Core modules
+## Important data limitation
 
-- `predict_client.py` — Predict.fun REST client + orderbook access.
-- `whale.py` — wallet scoring and category-specific filtering.
-- `copy.py` — copy-trade decision engine with caps, cooldowns and circuit breakers.
-- `arb.py` — cross-venue and structural arbitrage calculations.
-- `service.py` — polling loop and JSONL event output.
-- `config.py` — environment configuration.
-
-## Strategy philosophy
-
-A high win-rate wallet is not automatically a good wallet to follow. The scorer uses sample size, ROI, realized PnL, drawdown, category specialization, concentration, and recent consistency. Esports and Politics are scored independently.
+Predict.fun's public API provides positions by arbitrary address, but its account-activity endpoint is authenticated for the connected account. Therefore the discovery layer uses a public analytics/indexing source to seed wallets, while the official Predict API is used for market/orderbook/position data. Do **not** treat current positions as lifetime trade history.
 
 ## Setup
 
@@ -29,16 +24,27 @@ python -m venv .venv
 # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env
-python -m predict_whale_arb.service
 ```
 
 For Linux/macOS replace `copy` with `cp`.
 
-## API
+### Whale / copy scanner
 
-Predict mainnet requires an API key. The official API exposes markets, orderbooks, positions by address, orders, and WebSocket market streams. See https://dev.predict.fun/.
+```bash
+python -m predict_whale_arb.service
+```
 
-### Environment
+Set `WATCH_WALLETS` for known wallets. If it is empty, use the discovery adapter separately or extend `service.py` to refresh the candidate list automatically.
+
+### Cross-venue arbitrage scanner
+
+```bash
+python -m predict_whale_arb.arb_service
+```
+
+The scanner uses fuzzy matching only as a **candidate generator**. Before any real trade, exact question wording, resolution source, end time, outcome mapping, fees, depth and settlement mechanics must be verified.
+
+## Environment
 
 ```text
 PREDICT_API_KEY=
@@ -54,8 +60,13 @@ MAX_DAILY_LOSS_USD=100
 MIN_WHALE_SCORE=70
 MIN_SAMPLE_TRADES=30
 ARB_MIN_NET_EDGE=0.008
+POLYMARKET_GAMMA_URL=https://gamma-api.polymarket.com
 ```
 
-## Important
+## Architecture
 
-This repository intentionally ships with **paper trading as the safe default**. Live execution is separated behind an adapter and should only be enabled after backtesting and manual verification of market matching, fees, liquidity, and resolution rules.
+`discovery.py` → candidate wallets → `whale.py` → category/exposure analysis → `copy.py` → risk gate → `execution.py`.
+
+For arbitrage: `Predict API + Polymarket Gamma` → `arb.py` → candidate match → fee/depth/resolution validation → paper signal.
+
+The repository intentionally ships with **paper trading as the safe default**. Live execution should only be enabled after backtesting and manual verification of market matching, fees, liquidity, wallet permissions and resolution rules.
