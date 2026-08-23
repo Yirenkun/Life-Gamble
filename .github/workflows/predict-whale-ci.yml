@@ -1,0 +1,19 @@
+name: Predict Whale Hunter CI
+on:
+  push:
+    paths:
+      - 'predict_whale_arb/**'
+      - '.github/workflows/predict-whale-ci.yml'
+  pull_request:
+    paths:
+      - 'predict_whale_arb/**'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r predict_whale_arb/requirements.txt -r predict_whale_arb/dashboard/backend/requirements.txt
+      - run: python -m compileall predict_whale_arb
