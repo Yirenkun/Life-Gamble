@@ -1,0 +1,23 @@
+name: Predict Whale Hunter
+on:
+  push:
+    paths:
+      - 'predict_whale_arb/**'
+      - '.github/workflows/predict-dashboard.yml'
+  pull_request:
+    paths:
+      - 'predict_whale_arb/**'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: predict_whale_arb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r dashboard/backend/requirements.txt
+      - run: python -m compileall predict_whale_arb dashboard/backend
+      - run: python -c "from dashboard.backend.app import app; print(app.title)"
